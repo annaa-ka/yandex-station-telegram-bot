@@ -1,10 +1,14 @@
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, InlineQueryHandler
 import logging
 from telegram import InlineQueryResultArticle, InputTextMessageContent
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+botToken = os.environ.get('TELEGRAM_BOT_TOKEN')
 
 
-
-updater = Updater(token='1907134136:AAEJtkqdCEEeaw4T1d6g3JfA3iJA-KacVnI', use_context=True)
+updater = Updater(token=botToken, use_context=True)
 dispatcher = updater.dispatcher
 
 
