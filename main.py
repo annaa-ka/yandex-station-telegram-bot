@@ -3,6 +3,7 @@ import logging
 from telegram import InlineQueryResultArticle, InputTextMessageContent
 from dotenv import load_dotenv
 import os
+from yandex_station.station_client import SyncClient, YandexDeviceConfig
 
 load_dotenv()
 botToken = os.environ.get('TELEGRAM_BOT_TOKEN')
@@ -22,12 +23,12 @@ start_handler = CommandHandler('start', start)
 dispatcher.add_handler(start_handler)
 
 
-def echo(update, context):
-    context.bot.send_message(chat_id=update.effective_chat.id, text=update.message.text)
+def say_via_alice(update, context):
+    station_client.say(update.message.text)
 
 
-echo_handler = MessageHandler(Filters.text & (~Filters.command), echo)
-dispatcher.add_handler(echo_handler)
+say_via_alice_handler = MessageHandler(Filters.text & (~Filters.command), say_via_alice)
+dispatcher.add_handler(say_via_alice_handler)
 
 
 def caps(update, context):
@@ -64,8 +65,24 @@ unknown_handler = MessageHandler(Filters.command, unknown)
 dispatcher.add_handler(unknown_handler)
 
 
+host_ = os.environ.get('host')
+device_id_ = os.environ.get('device_id')
+platform_ = os.environ.get('platform')
+
+device_config = YandexDeviceConfig(
+    name = '<family.kenna>',  # Произвольное
+    host = host_,
+    device_id = device_id_,
+    platform = platform_
+)
+
+station_client = SyncClient(device_config, os.environ.get('Yandex_token'))
 updater.start_polling()
-updater.idle()
+try:
+    station_client.start()
+except KeyboardInterrupt:
+    print("Received exit, exiting")
+updater.stop()
 
 
 
