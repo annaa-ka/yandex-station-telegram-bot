@@ -19,6 +19,14 @@ from getpass import getpass
 from yandex_session import YandexSession, LoginResponse
 
 
+class CaptchaRequiredException(Exception):
+    def __init__(self, message, captcha_url):
+        super().__init__(message)   # вызов конструктора родительского класса
+        self.captcha_url = captcha_url
+
+
+
+
 class YandexTokenRetriever:
     async def get_token(self, username: str, password: str):
         session = ClientSession()
@@ -32,6 +40,12 @@ class YandexTokenRetriever:
             )
 
             return await self._check_yandex_response(resp)
+        except CaptchaRequiredException as e:
+            print(e.captcha_url)
+            captcha_answer = input()
+            resp = await yandex.login_captcha(captcha_answer)
+            return await self._check_yandex_response(resp)
+
         finally:
             await session.close()
 
@@ -45,7 +59,7 @@ class YandexTokenRetriever:
 
         elif resp.captcha_image_url:
             _LOGGER.debug(f"Captcha required: {resp.captcha_image_url}")
-            raise RuntimeError("Captcha is required")
+            raise CaptchaRequiredException('ok', resp.captcha_image_url)
             return
 
         elif resp.external_url:
@@ -59,7 +73,7 @@ class YandexTokenRetriever:
 if __name__ == "__main__":        
     try:    
         username = input('Provide your username: ')
-        password = getpass('Provide your password: ')
+        password = input('Provide your password: ')
 
         retriever = YandexTokenRetriever()
         r = retriever.get_token(username, password)
