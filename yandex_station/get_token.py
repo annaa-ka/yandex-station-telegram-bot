@@ -1,14 +1,3 @@
-"""
-1. User can enter login/pass from GUI
-2. User can set login/pass in YAML
-3. If the password requires updating, user need to configure another component
-   with the same login.
-4. Captcha will be requested if necessary
-5. If authorization through YAML does not work, user can continue it through
-   the GUI.
-"""
-
-#import voluptuous as vol
 import logging
 _LOGGER = logging.getLogger(__name__)
 
