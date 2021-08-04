@@ -139,10 +139,11 @@ class YandexSession:
 
         return LoginResponse(resp)
 
-    async def login_captcha(self, captcha_answer: str):
+    async def login_captcha(self, captcha_answer: str, password: str):
         """Login with answer to captcha from login_username."""
         _LOGGER.debug("Login in Yandex with captcha")
 
+        self._payload['password'] = password
         self._payload['password_source'] = 'captcha'
         self._payload['captcha_answer'] = captcha_answer
 
