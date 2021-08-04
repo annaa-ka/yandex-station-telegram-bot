@@ -63,7 +63,7 @@ if __name__ == "__main__":
 
         retriever = YandexTokenRetriever()
         r = retriever.get_token(username, password)
-        token = asyncio.run(r)
+        token = asyncio.get_event_loop().run_until_complete(r)
         print()
         print("Your token: " + token)
     except Exception as error:
