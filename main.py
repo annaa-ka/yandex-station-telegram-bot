@@ -64,19 +64,19 @@ def unknown(update, context):
 unknown_handler = MessageHandler(Filters.command, unknown)
 dispatcher.add_handler(unknown_handler)
 
-
-host_ = os.environ.get('host')
-device_id_ = os.environ.get('device_id')
-platform_ = os.environ.get('platform')
+name = os.environ.get('NAME')
+host = os.environ.get('HOST')
+device_id = os.environ.get('DEVICE_ID')
+platform = os.environ.get('PLATFORM')
 
 device_config = YandexDeviceConfig(
-    name = '<family.kenna>',  # Произвольное
-    host = host_,
-    device_id = device_id_,
-    platform = platform_
+    name=name,  # Произвольное
+    host=host,
+    device_id=device_id,
+    platform=platform
 )
 
-station_client = SyncClient(device_config, os.environ.get('Yandex_token'))
+station_client = SyncClient(device_config, os.environ.get('YANDEX_TOKEN'))
 updater.start_polling()
 try:
     station_client.start()
