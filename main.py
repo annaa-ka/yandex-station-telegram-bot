@@ -15,6 +15,7 @@ botToken = os.environ.get('TELEGRAM_BOT_TOKEN')
 
 updater = Updater(token=botToken, use_context=True)
 dispatcher = updater.dispatcher
+whitelist = list(os.environ.get('USERS_WHITELIST').split(','))
 
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -22,16 +23,13 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 
 
 def access_check(update, context):
-    whitelist = list(os.environ.get('USERS_WHITELIST').split(','))
     if len(whitelist) == 0:
         return
-    else:
-        if str(update.effective_user.id) in whitelist:
-            return
-        else:
+    if str(update.effective_user.id) not in whitelist:
             context.bot.send_message(chat_id=update.effective_chat.id, text="Sorry, the bot is in the development mode. You don't have access permission.")
             _LOGGER.info('User with ID: ' + str(update.effective_user.id) + ' is not included into the whitelist.')
             raise DispatcherHandlerStop
+    return
 
 access_check_handler = TypeHandler(Update, access_check)
 dispatcher.add_handler(access_check_handler, 0)
