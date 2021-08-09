@@ -1,12 +1,15 @@
+from typing import List, Union
 from dataclasses import dataclass
 import asyncio
 from asyncio.events import AbstractEventLoop
-from os import name
-from typing import List, TypedDict, Union
-from .yandex_session import YandexSession
+from aiohttp import ClientSession
+import logging
+
+from .yandex_session import LoginResponse, YandexSession
 from .yandex_quasar import YandexQuasar
 from .utils import fix_cloud_text
-from aiohttp import ClientSession
+
+_LOGGER = logging.getLogger(__name__)
 
 EXCEPTION_100 = Exception("Нельзя произнести более 100 симоволов :(")
 
@@ -16,6 +19,18 @@ class SpeakerConfig:
     id: str
     name: str
     scenario_id: Union[str, None]
+
+class CaptchaRequiredException(Exception):
+    def __init__(self, message, captcha_url: str):
+        super().__init__(message)
+            
+        self.captcha_url = captcha_url
+
+class CaptchaNotOpenedException(Exception):
+    pass
+
+class WrongPasswordException(Exception):
+    pass
 
 
 class SyncCloudClient:
@@ -29,6 +44,42 @@ class SyncCloudClient:
 
     def start(self):
         self.loop.run_forever()
+    def get_token(self, username: str, password: str, captcha: str = None) -> str:
+        r = self.__get_token_async(username, password)
+        return asyncio.run_coroutine_threadsafe(r, self.loop).result()
+
+    async def __get_token_async(self, username: str, password: str) -> str:
+        yandex = YandexSession(self.session)
+        response = await yandex.login_username(username, password)
+
+        return self.__check_login_response(response)
+
+    def __check_login_response(self, resp: LoginResponse) -> str:
+        if resp.ok:
+            return resp.x_token
+
+        elif resp.captcha_image_url:
+            _LOGGER.debug(f"Captcha required: {resp.captcha_image_url}")
+            raise CaptchaRequiredException("Captcha is required", resp.captcha_image_url)
+
+        elif resp.error == 'captcha.not_shown':
+            _LOGGER.debug(f"Captcha was not opened")
+            raise CaptchaNotOpenedException("Captcha was not opened")
+
+        elif resp.error == 'password.not_matched' or resp.error == 'password.empty':
+            _LOGGER.debug(f"Wrong password")
+            raise WrongPasswordException("Wrong password")
+
+        elif resp.external_url:
+            raise RuntimeError("External url returned")
+
+        elif resp.error:
+            _LOGGER.debug(f"Config error: {resp.error}")
+            raise ValueError(resp.error)
+
+        else:
+            _LOGGER.debug(f"Unknown error")
+            raise RuntimeError("Unknown error")
 
     def get_speakers(self, token: str) -> List[SpeakerConfig]:
         r = self.__get_speakers_async(token)
