@@ -15,7 +15,7 @@ botToken = os.environ.get('TELEGRAM_BOT_TOKEN')
 
 updater = Updater(token=botToken, use_context=True)
 dispatcher = updater.dispatcher
-whitelist = list(os.environ.get('USERS_WHITELIST').split(','))
+whitelist = os.environ.get('USERS_WHITELIST', "").split(',')
 
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
