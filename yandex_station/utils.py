@@ -7,11 +7,6 @@ from datetime import datetime
 from logging import Logger
 
 from aiohttp import web, ClientSession
-from homeassistant.components import frontend
-from homeassistant.components.http import HomeAssistantView
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers.typing import HomeAssistantType
-
 _LOGGER = logging.getLogger(__name__)
 
 # remove uiid, IP
@@ -26,46 +21,6 @@ HTML = ('<!DOCTYPE html><html><head><title>YandexStation</title>'
         '<meta http-equiv="refresh" content="%s"></head>'
         '<body><pre>%s</pre></body></html>')
 
-
-class YandexDebug(logging.Handler, HomeAssistantView):
-    name = "yandex_station_debug"
-    requires_auth = False
-
-    text = ''
-
-    def __init__(self, hass: HomeAssistantType, logger: Logger):
-        super().__init__()
-
-        logger.addHandler(self)
-        logger.setLevel(logging.DEBUG)
-
-        hass.loop.create_task(self.system_info(hass))
-
-        # random url because without authorization!!!
-        self.url = f"/{uuid.uuid4()}"
-
-        hass.http.register_view(self)
-        hass.components.persistent_notification.async_create(
-            NOTIFY_TEXT % self.url, title="YandexStation DEBUG")
-
-    @staticmethod
-    async def system_info(hass):
-        info = await hass.helpers.system_info.async_get_system_info()
-        info.pop('installation_type', None)  # fix HA v0.109.6
-        info.pop('timezone')
-        _LOGGER.debug(f"SysInfo: {info}")
-
-    def handle(self, rec: logging.LogRecord) -> None:
-        dt = datetime.fromtimestamp(rec.created).strftime("%Y-%m-%d %H:%M:%S")
-        module = 'main' if rec.module == '__init__' else rec.module
-        # remove private data
-        msg = RE_PRIVATE.sub("...", str(rec.msg))
-        self.text += f"{dt}  {rec.levelname:7}  {module:13}  {msg}\n"
-
-    async def get(self, request: web.Request):
-        reload = request.query.get('r', '')
-        return web.Response(text=HTML % (reload, self.text),
-                            content_type="text/html")
 
 
 def update_form(name: str, **kwargs):
@@ -97,10 +52,6 @@ def find_station(devices: list, name: str = None):
     return None
 
 
-async def error(hass: HomeAssistantType, text: str):
-    _LOGGER.error(text)
-    hass.components.persistent_notification.async_create(
-        text, title="YandexStation ERROR")
 
 
 def clean_v1(hass_dir):
@@ -114,17 +65,6 @@ def clean_v1(hass_dir):
         os.remove(path)
 
 
-async def has_custom_icons(hass: HomeAssistantType):
-    # GUI off mode
-    if 'lovelace' not in hass.data:
-        return False
-
-    resources = hass.data['lovelace']['resources']
-    await resources.async_get_info()
-    for resource in resources.async_items():
-        if '/yandex-icons.js' in resource['url']:
-            return True
-    return False
 
 
 def play_video_by_descriptor(provider: str, item_id: str):
@@ -203,14 +143,6 @@ async def get_media_payload(text: str, session):
     return None
 
 
-async def get_zeroconf_singleton(hass: HomeAssistantType):
-    try:
-        # Home Assistant 0.110.0 and above
-        from homeassistant.components.zeroconf import async_get_instance
-        return await async_get_instance(hass)
-    except:
-        from zeroconf import Zeroconf
-        return Zeroconf()
 
 
 RE_ID3 = re.compile(br'(Text|TIT2)(....)\x00\x00\x03(.+?)\x00',
@@ -249,38 +181,6 @@ async def get_tts_message(session: ClientSession, url: str):
 
     return None
 
-
-# noinspection PyProtectedMember
-def fix_recognition_lang(hass: HomeAssistantType, folder: str, lng: str):
-    path = frontend._frontend_root(None).joinpath(folder)
-    for child in path.iterdir():
-        # find all chunc.xxxx.js files
-        if child.suffix != '.js' and 'chunk.' not in child.name:
-            continue
-
-        with open(child, 'rb') as f:
-            raw = f.read()
-
-        # find chunk file with recognition code
-        if b'this.recognition.lang=' not in raw:
-            continue
-
-        raw = raw.replace(b'en-US', lng.encode())
-
-        async def recognition_lang(request):
-            _LOGGER.debug("Send fixed recognition lang to client")
-            return web.Response(body=raw,
-                                content_type='application/javascript')
-
-        hass.http.app.router.add_get('/frontend_latest/' + child.name,
-                                     recognition_lang)
-
-        resource = hass.http.app.router._resources.pop()
-        hass.http.app.router._resources.insert(40, resource)
-
-        _LOGGER.debug(f"Fix recognition lang in {folder} to {lng}")
-
-        return
 
 
 RE_CLOUD_TEXT = re.compile(r'(<.+?>|[^А-Яа-яЁёA-Za-z0-9-,!.:=? ]+)')
@@ -336,11 +236,3 @@ def dump_capabilities(data: dict) -> dict:
     return data
 
 
-def load_token_from_json(hass: HomeAssistant):
-    """Load token from .yandex_station.json"""
-    filename = hass.config.path('.yandex_station.json')
-    if os.path.isfile(filename):
-        with open(filename, 'rt') as f:
-            raw = json.load(f)
-        return raw['main_token']['access_token']
-    return None

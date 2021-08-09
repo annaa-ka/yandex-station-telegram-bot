@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import time
 
@@ -29,7 +30,6 @@ MASK_RU = 'оеаинтсрвлкмдпуяы'
 
 URL_USER = 'https://iot.quasar.yandex.ru/m/user'
 
-
 def encode(uid: str) -> str:
     """Кодируем UID в рус. буквы. Яндекс привередливый."""
     return 'ХА ' + ''.join([MASK_RU[MASK_EN.index(s)] for s in uid])
@@ -42,7 +42,7 @@ def decode(uid: str) -> str:
 
 class YandexQuasar:
     # all devices
-    devices = None
+    devices = []
     online_update_ts = 0
 
     def __init__(self, session: YandexSession):
@@ -55,58 +55,61 @@ class YandexQuasar:
                 return device['id']
         return None
 
-    async def init(self):
-        """Основная функция. Возвращает список колонок."""
+    @property
+    def speakers(self):
+        return self.get_speakers_from_devices(self.devices)
+
+    def get_speakers_from_devices(self, devices: list) -> list:
+        return [
+            device for device in  devices
+            if device['type'].startswith('devices.types.smart_speaker') or
+               device['type'].endswith('yandex.module')
+        ]
+
+    async def load_devices(self):
+        devices, scenarios = await asyncio.gather(
+            self.__fetch_devices(),
+            self.__fetch_scenarios()
+        )
+
+        speakers = self.get_speakers_from_devices(devices)
+
+        for speaker in speakers:
+            device_id = speaker['id']
+
+            if device_id not in scenarios:
+                await self.__add_scenario(device_id)
+                scenarios = await self.__fetch_scenarios()
+
+            speaker['scenario_id'] = scenarios[device_id]['id']
+
+        self.devices = devices
+    
+    async def prepare_speaker(self, speaker): 
+        if speaker['scenario_id']:
+            return
+        
+        speaker_id = speaker['id']
+        await self.__add_scenario(speaker_id)
+        scenarios = await self.__fetch_scenarios()
+
+        speaker['scenario_id'] = scenarios[speaker_id]['id']
+
+    async def __fetch_devices(self) -> list:
         _LOGGER.debug("Получение списка устройств.")
 
         r = await self.session.get(f"{URL_USER}/devices")
         resp = await r.json()
         assert resp['status'] == 'ok', resp
 
-        self.devices = [device for room in resp['rooms']
-                        for device in room['devices']]
-        self.devices += resp['speakers'] + resp['unconfigured_devices']
+        devices = [device for room in resp['rooms']
+                for device in room['devices']]
 
-    @property
-    def speakers(self):
-        return [
-            device for device in self.devices
-            if device['type'].startswith('devices.types.smart_speaker') or
-               device['type'].endswith('yandex.module')
-        ]
+        devices += resp['speakers'] + resp['unconfigured_devices']
 
-    async def load_speakers(self) -> list:
-        speakers = self.speakers
-
-        # Яндекс начали добавлять device_id и platform с полным списком
-        # устройств
-        # for speaker in speakers:
-        #     await self.load_speaker_config(speaker)
-
-        scenarios = await self.load_scenarios()
-        for speaker in speakers:
-            device_id = speaker['id']
-
-            if device_id not in scenarios:
-                await self.add_scenario(device_id)
-                scenarios = await self.load_scenarios()
-
-            speaker['scenario_id'] = scenarios[device_id]['id']
-
-        return speakers
-
-    async def load_speaker_config(self, device: dict):
-        """Загружаем device_id и platform для колонок. Они не приходят с полным
-        списком устройств.
-        """
-        r = await self.session.get(
-            f"{URL_USER}/devices/{device['id']}/configuration")
-        resp = await r.json()
-        assert resp['status'] == 'ok', resp
-        # device_id and platform
-        device.update(resp['quasar_info'])
-
-    async def load_scenarios(self) -> dict:
+        return devices
+    
+    async def __fetch_scenarios(self) -> dict:
         """Получает список сценариев, которые мы ранее создали."""
         r = await self.session.get(f"{URL_USER}/scenarios")
         resp = await r.json()
@@ -118,7 +121,7 @@ class YandexQuasar:
             if d['name'].startswith('ХА ')
         }
 
-    async def add_scenario(self, device_id: str):
+    async def __add_scenario(self, device_id: str):
         """Добавляет сценарий-пустышку."""
         name = encode(device_id)
         payload = {

@@ -39,11 +39,15 @@ class SyncClient:
     def start(self):
         self.loop.run_until_complete(self.yandex.refresh_cookies())
         self.loop.run_until_complete(self.glagol.start_or_restart())
+        
+        try:
         self.loop.run_forever()
+        finally:
+            self.loop.run_until_complete(self.session.close())
 
     def say(self, phrase: str):
         r = self.say_async(phrase)
-        asyncio.run_coroutine_threadsafe(r, self.loop)
+        asyncio.run_coroutine_threadsafe(r, self.loop).result()
     
     async def say_async(self, phrase: str):
         await self.glagol.send({
