@@ -49,7 +49,7 @@ class SyncCloudClient:
         finally:
             self.loop.run_until_complete(self.session.close())
 
-    def get_token(self, username: str, password: str, captcha: str = None) -> str:
+    def get_token(self, username: str, password: str) -> str:
         r = self.__get_token_async(username, password)
         return asyncio.run_coroutine_threadsafe(r, self.loop).result()
 
