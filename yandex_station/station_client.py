@@ -43,7 +43,7 @@ class SyncClient:
 
     def say(self, phrase: str):
         r = self.say_async(phrase)
-        asyncio.run_coroutine_threadsafe(r, self.loop)
+        asyncio.run_coroutine_threadsafe(r, self.loop).result()
     
     async def say_async(self, phrase: str):
         await self.glagol.send({

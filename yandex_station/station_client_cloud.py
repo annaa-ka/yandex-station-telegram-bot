@@ -61,7 +61,7 @@ class SyncCloudClient:
 
     def say(self, token: str, device: SpeakerConfig, phrase: str):
         r = self.say_async(token, device, phrase)
-        asyncio.run_coroutine_threadsafe(r, self.loop)
+        asyncio.run_coroutine_threadsafe(r, self.loop).result()
 
 
     async def say_async(self, token: str, speaker: SpeakerConfig, phrase: str):
