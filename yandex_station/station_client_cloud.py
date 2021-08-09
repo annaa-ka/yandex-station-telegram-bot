@@ -21,10 +21,11 @@ class SpeakerConfig:
     scenario_id: Union[str, None]
 
 class CaptchaRequiredException(Exception):
-    def __init__(self, message, captcha_url: str):
+    def __init__(self, message, captcha_url: str, track_id: str = None):
         super().__init__(message)
             
         self.captcha_url = captcha_url
+        self.track_id = track_id
 
 class CaptchaNotOpenedException(Exception):
     pass
@@ -54,13 +55,23 @@ class SyncCloudClient:
 
         return self.__check_login_response(response)
 
+    def get_token_captcha(self, username: str, password: str, captcha: str, track_id: str) -> str:
+        r = self.__get_token_captcha_async(username, password, captcha, track_id)
+        return asyncio.run_coroutine_threadsafe(r, self.loop).result()
+
+    async def __get_token_captcha_async(self, username: str, password: str, captcha: str, track_id: str) -> str:
+        yandex = YandexSession(self.session)
+        response = await yandex.login_captcha(captcha, password, username, track_id)
+
+        return self.__check_login_response(response)
+
     def __check_login_response(self, resp: LoginResponse) -> str:
         if resp.ok:
             return resp.x_token
 
         elif resp.captcha_image_url:
             _LOGGER.debug(f"Captcha required: {resp.captcha_image_url}")
-            raise CaptchaRequiredException("Captcha is required", resp.captcha_image_url)
+            raise CaptchaRequiredException("Captcha is required", resp.captcha_image_url, resp.track_id)
 
         elif resp.error == 'captcha.not_shown':
             _LOGGER.debug(f"Captcha was not opened")

@@ -3,6 +3,7 @@ import json
 import logging
 import pickle
 import re
+from typing import Union
 
 from aiohttp import ClientSession
 
@@ -68,6 +69,10 @@ class LoginResponse:
     @property
     def x_token(self):
         return self.raw['x_token']
+
+    @property
+    def track_id(self) -> Union[str, None]:
+        return self.raw.get('track_id')
 
 
 class YandexSession:
@@ -137,11 +142,21 @@ class YandexSession:
                 f"https://passport.yandex.com/auth?track_id={track_id}"
             )
 
+        resp['track_id'] = track_id
         return LoginResponse(resp)
 
-    async def login_captcha(self, captcha_answer: str, password: str):
+    async def login_captcha(self, captcha_answer: str, password: str, username: str = None, track_id: str = None):
         """Login with answer to captcha from login_username."""
         _LOGGER.debug("Login in Yandex with captcha")
+
+        if not self._payload: 
+            self._payload = {}
+
+        if username:
+            self._payload['login'] = username
+
+        if track_id:
+            self._payload['track_id'] = track_id
 
         self._payload['password'] = password
         self._payload['password_source'] = 'captcha'
