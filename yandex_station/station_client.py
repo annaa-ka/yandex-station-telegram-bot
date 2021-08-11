@@ -41,7 +41,7 @@ class SyncClient:
         self.loop.run_until_complete(self.glagol.start_or_restart())
         
         try:
-        self.loop.run_forever()
+            self.loop.run_forever()
         finally:
             self.loop.run_until_complete(self.session.close())
 
