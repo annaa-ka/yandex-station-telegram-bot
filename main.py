@@ -1,10 +1,11 @@
-from telegram.ext import Updater, CommandHandler, MessageHandler
+from telegram.ext import Updater, CommandHandler, MessageHandler, ConversationHandler, PicklePersistence
 from telegram.ext import  Filters, InlineQueryHandler, TypeHandler, DispatcherHandlerStop
 import logging
 from telegram import InlineQueryResultArticle, InputTextMessageContent, Update
 from dotenv import load_dotenv
 import os
-from yandex_station.station_client import SyncClient, YandexDeviceConfig
+from yandex_station.station_client_cloud import SyncCloudClient, CaptchaRequiredException, WrongPasswordException
+from yandex_station.station_client import YandexDeviceConfig
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -12,8 +13,8 @@ _LOGGER = logging.getLogger(__name__)
 load_dotenv()
 botToken = os.environ.get('TELEGRAM_BOT_TOKEN')
 
-
-updater = Updater(token=botToken, use_context=True)
+my_persistence = PicklePersistence(filename='my_file.txt')
+updater = Updater(token=botToken,  persistence=my_persistence,  use_context=True)
 dispatcher = updater.dispatcher
 whitelist = os.environ.get('USERS_WHITELIST', "").split(',')
 
@@ -22,32 +23,94 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
                      level=logging.INFO)
 
 
+
 def access_check(update, context):
     if len(whitelist) == 0:
         return
     if str(update.effective_user.id) not in whitelist:
-            context.bot.send_message(chat_id=update.effective_chat.id, text="Sorry, the bot is in the development mode. You don't have access permission.")
+            context.bot.send_message(chat_id=update.effective_chat.id, text="Sorry, the bot is in the "
+                                        "development mode. You don't have access permission.")
             _LOGGER.info('User with ID: ' + str(update.effective_user.id) + ' is not included into the whitelist.')
             raise DispatcherHandlerStop
     return
 
+
 access_check_handler = TypeHandler(Update, access_check)
 dispatcher.add_handler(access_check_handler, 0)
 
+
+USERNAME, PASSWORD, CAPTCHA = range(3)
+
+
 def start(update, context):
-    context.bot.send_message(chat_id=update.effective_chat.id, text="I'm a bot, please talk to me!")
+    update.message.reply_text("Hello. Nice to meet you! The command /cancel is to stop the conversation.")
+    context.bot.send_message(chat_id=update.effective_chat.id, text="Please, enter station username.")
+    return USERNAME
 
 
-start_handler = CommandHandler('start', start)
-dispatcher.add_handler(start_handler, 1)
+def username_(update, context):
+    context.user_data['username_'] = update.message.text
+    update.message.delete()
+    context.bot.send_message(chat_id=update.effective_chat.id, text="Please, enter station password.")
+    return PASSWORD
 
 
-def say_via_alice(update, context):
-    station_client.say(update.message.text)
+def password_(update, context):
+    context.user_data['password_'] = update.message.text
+    update.message.delete()
+    try:
+        if context.user_data.get('captcha_answer_') is None:
+            context.user_data['token_'] = station_client.get_token(context.user_data['username_'],
+                                                                   context.user_data['password_'])
+            update.message.reply_text("Your yandex_station token: " + context.user_data['token_'])
+        else:
+            context.user_data['token_'] = station_client.get_token_captcha(context.user_data['username_'],
+                                        context.user_data['password_'], context.user_data['captcha_answer_'],
+                                                                           context.user_data['track_id_'])
+            update.message.reply_text("Your yandex_station token: " + context.user_data['token_'])
+    except CaptchaRequiredException as err:
+        context.user_data['track_id_'] = err.track_id
+        context.bot.send_message(chat_id=update.effective_chat.id,
+                                 text="Please, open the following URL in the browser and type the "
+                                      "CAPTCHA answer below: " +
+                                 err.captcha_url)
+        return CAPTCHA
+    except WrongPasswordException:
+        update.message.reply_text("The password is wrong. Try again.")
+    except Exception:
+        update.message.reply_text("Try again.")
 
 
-say_via_alice_handler = MessageHandler(Filters.text & (~Filters.command), say_via_alice)
-dispatcher.add_handler(say_via_alice_handler, 1)
+def capthcha_(update, context):
+    context.user_data['captcha_answer_'] = update.message.text
+    context.bot.send_message(chat_id=update.effective_chat.id,
+                             text="Please, enter station password.")
+    return PASSWORD
+
+
+def cancel(update, _):
+    return ConversationHandler.END
+
+
+conv_handler = ConversationHandler(
+        entry_points=[CommandHandler('start', start)],
+        states={
+            USERNAME: [MessageHandler(Filters.text & (~Filters.command), username_)],
+            PASSWORD: [MessageHandler(Filters.text & (~Filters.command), password_)],
+            CAPTCHA: [MessageHandler(Filters.text & (~Filters.command), capthcha_)],
+        },
+        fallbacks=[CommandHandler('cancel', cancel)],
+        allow_reentry=True
+    )
+dispatcher.add_handler(conv_handler, 1)
+
+
+# def say_via_alice(update, context):
+#   station_client.say(update.message.text)
+#
+#
+# say_via_alice_handler = MessageHandler(Filters.text & (~Filters.command), say_via_alice)
+# dispatcher.add_handler(say_via_alice_handler, 1)
 
 
 def caps(update, context):
@@ -101,7 +164,8 @@ device_config = YandexDeviceConfig(
     platform=platform
 )
 
-station_client = SyncClient(device_config, os.environ.get('YANDEX_TOKEN'))
+
+station_client = SyncCloudClient()
 updater.start_polling()
 try:
     station_client.start()
