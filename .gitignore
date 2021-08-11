@@ -109,6 +109,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+bot_data.bin
 
 # Spyder project settings
 .spyderproject
