@@ -51,74 +51,77 @@ def access_check(update, context):
 access_check_handler = TypeHandler(Update, access_check)
 dispatcher.add_handler(access_check_handler, 0)
 
-USERNAME_, PASSWORD_, CAPTCHA_ = range(3)
+YANDEX_AUTH_USERNAME, YANDEX_AUTH_PASSWORD, YANDEX_AUTH_CAPTCHA = range(3)
 
 
 def clean_out_info(context):
-    lst = {'yandex_username_', 'yandex_captcha_answer_', 'yandex_track_id_'}
+    lst = {'yandex_auth_username', 'yandex_auth_captcha_answer', 'yandex_auth_track_id'}
     for key in lst:
         context.user_data.pop(key, None)
 
 
 def start(update, context):
     clean_out_info(context)
-    update.message.reply_text("Hi! \n"
+    update.message.reply_text("Hi! \n\n"
                               "To start our work we will need to get your yandex station token. \n"
-                              "For this step we will need your Yandex ID and password. \n"
+                              "For this step we will need your Yandex ID and password. \n\n"
                               "The command /cancel is to stop the conversation.")
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text="Please, enter your Yandex ID.")
-    return USERNAME_
+    return YANDEX_AUTH_USERNAME
 
 
-def yandex_username_(update, context):
-    context.user_data['yandex_username_'] = update.message.text
+def yandex_username(update, context):
+    context.user_data['yandex_auth_username'] = update.message.text
     update.message.delete()
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text="If 2FA is activated for your yandex account, "
         "enter a one-time password. Otherwise, enter your password.")
-    return PASSWORD_
+    return YANDEX_AUTH_PASSWORD
 
 
-def yandex_password_(update, context):
-    yandex_password = update.message.text
+def yandex_password(update, context):
+    yandex_auth_password = update.message.text
     update.message.delete()
     try:
-        if context.user_data.get('yandex_captcha_answer_') is None:
-            context.user_data['station_token_'] = station_client.get_token(
-                                                                            context.user_data['yandex_username_'],
-                                                                            yandex_password
+        if context.user_data.get('yandex_auth_captcha_answer') is None:
+            context.user_data['station_token'] = station_client.get_token(
+                                                                            context.user_data['yandex_auth_username'],
+                                                                            yandex_auth_password
                                                                             )
         else:
-            context.user_data['station_token_'] = station_client.get_token_captcha(
-                context.user_data['yandex_username_'], yandex_password,
-                context.user_data['yandex_captcha_answer_'], context.user_data['yandex_track_id_'])
+            context.user_data['station_token'] = station_client.get_token_captcha(
+                context.user_data['yandex_auth_username'], yandex_auth_password,
+                context.user_data['yandex_auth_captcha_answer'], context.user_data['yandex_auth_track_id'])
 
-        update.message.reply_text("Authorization was successful!!!")
+        update.message.reply_text("Authorization was successful!")
         clean_out_info(context)
+        return ConversationHandler.END
     except CaptchaRequiredException as err:
-        context.user_data['yandex_track_id_'] = err.track_id
+        context.user_data['yandex_auth_track_id'] = err.track_id
         context.bot.send_message(
             chat_id=update.effective_chat.id,
             text="Please, type CAPTCHA answer below: " + err.captcha_url)
-        return CAPTCHA_
+        return YANDEX_AUTH_CAPTCHA
     except WrongPasswordException:
-        update.message.reply_text("The password is wrong. Try again using /start.")
+        update.message.reply_text("The password is wrong. Try again or restart the process with the /start command")
     except Exception:
-        update.message.reply_text("Something went wrong. Try again using /start.")
+        update.message.reply_text("Something went wrong. Restart the process with the /start command")
+        clean_out_info(context)
+        return ConversationHandler.END
 
 
-def captcha_answer_(update, context):
-    context.user_data['captcha_answer_'] = update.message.text
+
+def captcha_answer(update, context):
+    context.user_data['captcha_auth_answer'] = update.message.text
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text="If 2FA is activated for your yandex account, "
-             "enter a one-time password from app 'Яключ'."
-             "You might need a new one in case the previous one ran out of time."
+             "enter a new one-time password from app 'Яключ'."
              "Otherwise, enter your password.")
-    return PASSWORD_
+    return YANDEX_AUTH_PASSWORD
 
 
 def cancel(update, context):
@@ -130,9 +133,9 @@ def cancel(update, context):
 conv_handler = ConversationHandler(
     entry_points=[CommandHandler('start', start)],
     states={
-        USERNAME_: [MessageHandler(Filters.text & (~Filters.command), yandex_username_)],
-        PASSWORD_: [MessageHandler(Filters.text & (~Filters.command), yandex_password_)],
-        CAPTCHA_: [MessageHandler(Filters.text & (~Filters.command), captcha_answer_)],
+        YANDEX_AUTH_USERNAME: [MessageHandler(Filters.text & (~Filters.command), yandex_username)],
+        YANDEX_AUTH_PASSWORD: [MessageHandler(Filters.text & (~Filters.command), yandex_password)],
+        YANDEX_AUTH_CAPTCHA: [MessageHandler(Filters.text & (~Filters.command), captcha_answer)],
     },
     fallbacks=[CommandHandler('cancel', cancel)],
     allow_reentry=True
