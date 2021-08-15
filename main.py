@@ -2,7 +2,6 @@ import logging
 import os
 
 from dotenv import load_dotenv
-from aiogram import types
 from telegram import InlineQueryResultArticle, InputTextMessageContent, Update
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
@@ -148,41 +147,53 @@ dispatcher.add_handler(station_token_conv_handler, 1)
 YANDEX_CHOOSING_STATION = range(1)
 
 
-def set_speaker(update, context):
+def start_station_choosing(update, context):
     if context.user_data.get('station_token') is None:
         update.message.reply_text("Sorry, you have not authorized yet. Use /start to start our work.")
         return ConversationHandler.END
+
     update.message.reply_text("Now you need to choose a station which we will use in our work. \n\n"
                               "The command /cancel_station_choosing is to stop the conversation.")
+
     list_of_speakers = station_client.get_speakers(context.user_data['station_token'])
+
     inline_keyboard_list = []
     dict_of_station_config = {}
+
     for elem in list_of_speakers:
-        inline_keyboard_list.append(InlineKeyboardButton(elem.name, callback_data=elem.name))
-        dict_of_station_config[elem.name] = elem
-    keyboard = [
-        inline_keyboard_list
-    ]
+        inline_keyboard_list.append(InlineKeyboardButton(elem.id, callback_data=elem.id))
+        dict_of_station_config[elem.id] = elem
+
+    keyboard = [inline_keyboard_list]
+
     context.user_data["dict_of_station_config"] = dict_of_station_config
+
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.message.reply_text('Please choose:', reply_markup=reply_markup)
+
     return YANDEX_CHOOSING_STATION
 
 
 def choose_station(update, context):
     query = update.callback_query
     query.answer()
-    query.edit_message_text(text=f"Selected option: {query.data}")
-    context.user_data["selected_yandex_speaker"] = station_client.prepare_speaker(
+    speaker_id = query.data
+    query.edit_message_text(text=f"Selected option: {speaker_id}")
+
+    new_speaker_config = station_client.prepare_speaker(
         context.user_data["station_token"],
-        context.user_data["dict_of_station_config"][query.data]
+        context.user_data["dict_of_station_config"][speaker_id]
     )
+    context.user_data["selected_yandex_speaker"] = new_speaker_config
+
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text="The setup was successful. \n\n"
              "In your yandex cloud we have created a special service script. "
              "Please, do not delete it.")
+
     context.user_data.pop("dict_of_station_config", None)
+
     return ConversationHandler.END
 
 
@@ -193,7 +204,7 @@ def cancel_station_choosing(update, context):
 
 
 choosing_station_conv_handler = ConversationHandler(
-    entry_points=[CommandHandler('set_speaker', set_speaker)],
+    entry_points=[CommandHandler('set_speaker', start_station_choosing)],
     states={
         YANDEX_CHOOSING_STATION: [CallbackQueryHandler(choose_station)],
     },
@@ -246,12 +257,12 @@ dispatcher.add_handler(inline_caps_handler, 1)
 # Выберете требуемое преобразование.
 
 
-#def unknown(update, context):
-#    context.bot.send_message(chat_id=update.effective_chat.id, text="Sorry, I didn't understand that command.")
+def unknown(update, context):
+    context.bot.send_message(chat_id=update.effective_chat.id, text="Sorry, I didn't understand that command.")
 
 
-#unknown_handler = MessageHandler(Filters.command, unknown)
-#dispatcher.add_handler(unknown_handler, 1)
+unknown_handler = MessageHandler(Filters.command, unknown)
+dispatcher.add_handler(unknown_handler, 1)
 
 station_client = SyncCloudClient()
 updater.start_polling()
