@@ -161,7 +161,7 @@ def start_station_choosing(update, context):
     dict_of_station_config = {}
 
     for elem in list_of_speakers:
-        inline_keyboard_list.append(InlineKeyboardButton(elem.id, callback_data=elem.id))
+        inline_keyboard_list.append(InlineKeyboardButton(elem.name, callback_data=elem.id))
         dict_of_station_config[elem.id] = elem
 
     keyboard = [inline_keyboard_list]
