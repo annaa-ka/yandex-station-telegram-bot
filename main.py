@@ -38,7 +38,7 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 
 
 def access_check(update, context):
-    if len(whitelist) == 0:
+    if whitelist[0] == "":
         return
     if str(update.effective_user.id) not in whitelist:
         context.bot.send_message(
