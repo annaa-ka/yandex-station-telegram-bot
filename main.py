@@ -178,13 +178,15 @@ def choose_station(update, context):
     query = update.callback_query
     query.answer()
     speaker_id = query.data
-    query.edit_message_text(text=f"Selected option: {speaker_id}")
+
 
     new_speaker_config = station_client.prepare_speaker(
         context.user_data["station_token"],
         context.user_data["dict_of_station_config"][speaker_id]
     )
     context.user_data["selected_yandex_speaker"] = new_speaker_config
+
+    query.edit_message_text(text=f"Selected option: {new_speaker_config.name}")
 
     context.bot.send_message(
         chat_id=update.effective_chat.id,
