@@ -3,6 +3,7 @@ import os
 
 from dotenv import load_dotenv
 from telegram import InlineQueryResultArticle, InputTextMessageContent, Update
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Updater,
     CommandHandler,
@@ -12,7 +13,8 @@ from telegram.ext import (
     Filters,
     InlineQueryHandler,
     TypeHandler,
-    DispatcherHandlerStop
+    DispatcherHandlerStop,
+    CallbackQueryHandler
 )
 
 from yandex_station.station_client_cloud import (
@@ -55,7 +57,7 @@ YANDEX_AUTH_USERNAME, YANDEX_AUTH_PASSWORD, YANDEX_AUTH_CAPTCHA = range(3)
 
 
 def clean_out_info(context):
-    lst = {'yandex_auth_username', 'yandex_auth_captcha_answer', 'yandex_auth_track_id'}
+    lst = ['yandex_auth_username', 'yandex_auth_captcha_answer', 'yandex_auth_track_id']
     for key in lst:
         context.user_data.pop(key, None)
 
@@ -65,7 +67,7 @@ def start(update, context):
     update.message.reply_text("Hi! \n\n"
                               "To start our work we will need to get your yandex station token. \n"
                               "For this step we will need your Yandex ID and password. \n\n"
-                              "The command /cancel is to stop the conversation.")
+                              "The command /cancel_authorization is to stop the conversation.")
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text="Please, enter your Yandex ID.")
@@ -96,7 +98,7 @@ def yandex_password(update, context):
                 context.user_data['yandex_auth_username'], yandex_auth_password,
                 context.user_data['yandex_auth_captcha_answer'], context.user_data['yandex_auth_track_id'])
 
-        update.message.reply_text("Authorization was successful!")
+        update.message.reply_text("Authorization was successful! Use /set_speaker to choose which station we will use.")
         clean_out_info(context)
         return ConversationHandler.END
     except CaptchaRequiredException as err:
@@ -124,23 +126,95 @@ def captcha_answer(update, context):
     return YANDEX_AUTH_PASSWORD
 
 
-def cancel(update, context):
+def cancel_authorization(update, context):
     clean_out_info(context)
     update.message.reply_text("The authorization process is stopped. If you want to restart, use /start")
     return ConversationHandler.END
 
 
-conv_handler = ConversationHandler(
+station_token_conv_handler = ConversationHandler(
     entry_points=[CommandHandler('start', start)],
     states={
         YANDEX_AUTH_USERNAME: [MessageHandler(Filters.text & (~Filters.command), yandex_username)],
         YANDEX_AUTH_PASSWORD: [MessageHandler(Filters.text & (~Filters.command), yandex_password)],
         YANDEX_AUTH_CAPTCHA: [MessageHandler(Filters.text & (~Filters.command), captcha_answer)],
     },
-    fallbacks=[CommandHandler('cancel', cancel)],
+    fallbacks=[CommandHandler('cancel_authorization', cancel_authorization)],
     allow_reentry=True
 )
-dispatcher.add_handler(conv_handler, 1)
+dispatcher.add_handler(station_token_conv_handler, 1)
+
+YANDEX_CHOOSING_STATION = range(1)
+
+
+def start_station_choosing(update, context):
+    if context.user_data.get('station_token') is None:
+        update.message.reply_text("Sorry, you have not authorized yet. Use /start to start our work.")
+        return ConversationHandler.END
+
+    update.message.reply_text("Now you need to choose a station which we will use in our work. \n\n"
+                              "The command /cancel_station_choosing is to stop the conversation.")
+
+    list_of_speakers = station_client.get_speakers(context.user_data['station_token'])
+
+    inline_keyboard_list = []
+    dict_of_station_config = {}
+
+    for elem in list_of_speakers:
+        inline_keyboard_list.append(InlineKeyboardButton(elem.name, callback_data=elem.id))
+        dict_of_station_config[elem.id] = elem
+
+    keyboard = [inline_keyboard_list]
+
+    context.user_data["dict_of_station_config"] = dict_of_station_config
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    update.message.reply_text('Please choose:', reply_markup=reply_markup)
+
+    return YANDEX_CHOOSING_STATION
+
+
+def choose_station(update, context):
+    query = update.callback_query
+    query.answer()
+    speaker_id = query.data
+
+
+    new_speaker_config = station_client.prepare_speaker(
+        context.user_data["station_token"],
+        context.user_data["dict_of_station_config"][speaker_id]
+    )
+    context.user_data["selected_yandex_speaker"] = new_speaker_config
+
+    query.edit_message_text(text=f"Selected option: {new_speaker_config.name}")
+
+    context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text="The setup was successful. \n\n"
+             "In your yandex cloud we have created a special service script. "
+             "Please, do not delete it.")
+
+    context.user_data.pop("dict_of_station_config", None)
+
+    return ConversationHandler.END
+
+
+def cancel_station_choosing(update, context):
+    update.message.reply_text("The process of choosing station is stopped. If you want to restart, use /set_speaker")
+    context.user_data.pop("dict_of_station_config", None)
+    return ConversationHandler.END
+
+
+choosing_station_conv_handler = ConversationHandler(
+    entry_points=[CommandHandler('set_speaker', start_station_choosing)],
+    states={
+        YANDEX_CHOOSING_STATION: [CallbackQueryHandler(choose_station)],
+    },
+    fallbacks=[CommandHandler('cancel_station_choosing', cancel_station_choosing)],
+    allow_reentry=True
+)
+dispatcher.add_handler(choosing_station_conv_handler, 1)
+
 
 
 # def say_via_alice(update, context):
