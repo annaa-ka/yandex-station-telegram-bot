@@ -216,13 +216,22 @@ choosing_station_conv_handler = ConversationHandler(
 dispatcher.add_handler(choosing_station_conv_handler, 1)
 
 
+def say_via_alice(update, context):
+    if context.user_data.get('station_token') is None:
+        update.message.reply_text("Sorry, you have not authorized yet. Use /start to start our work.")
+        return
+    if context.user_data.get('selected_yandex_speaker') is None:
+        update.message.reply_text("Sorry, you have not chosen the station yet. Use /set_speaker to start our work.")
+        return
+    station_client.say(
+        context.user_data["station_token"],
+        context.user_data["selected_yandex_speaker"],
+        update.message.text
+    )
 
-# def say_via_alice(update, context):
-#   station_client.say(update.message.text)
-#
-#
-# say_via_alice_handler = MessageHandler(Filters.text & (~Filters.command), say_via_alice)
-# dispatcher.add_handler(say_via_alice_handler, 1)
+
+say_via_alice_handler = MessageHandler(Filters.text & (~Filters.command), say_via_alice)
+dispatcher.add_handler(say_via_alice_handler, 1)
 
 
 def caps(update, context):
@@ -251,12 +260,6 @@ def inline_caps(update, context):
 
 inline_caps_handler = InlineQueryHandler(inline_caps)
 dispatcher.add_handler(inline_caps_handler, 1)
-
-
-# Использование: в используемом вами клиенте Телеграмм наберите
-# @логин_бота и через пробел какое либо сообщение.  Далее появится
-# контекстное меню с выбором преобразования сообщения: UPPER, BOLD, ITALIC.
-# Выберете требуемое преобразование.
 
 
 def unknown(update, context):
