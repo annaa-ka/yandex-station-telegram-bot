@@ -220,9 +220,11 @@ def say_via_alice(update, context):
     if context.user_data.get('station_token') is None:
         update.message.reply_text("Sorry, you have not authorized yet. Use /start to start our work.")
         return
+
     if context.user_data.get('selected_yandex_speaker') is None:
         update.message.reply_text("Sorry, you have not chosen the station yet. Use /set_speaker to start our work.")
         return
+
     station_client.say(
         context.user_data["station_token"],
         context.user_data["selected_yandex_speaker"],
