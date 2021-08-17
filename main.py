@@ -236,6 +236,20 @@ say_via_alice_handler = MessageHandler(Filters.text & (~Filters.command), say_vi
 dispatcher.add_handler(say_via_alice_handler, 1)
 
 
+def delete_users_station_info(update, context):
+    context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text="Now we will delete your token and selected station.\n"
+             "If you want to restart you work, use /start.")
+
+    lst = ['yandex_auth_token', 'selected_yandex_speaker']
+    for key in lst:
+        context.user_data.pop(key, None)
+
+
+delete_users_station_info_handler = CommandHandler('delete_info', delete_users_station_info)
+dispatcher.add_handler(delete_users_station_info_handler, 1)
+
 def caps(update, context):
     text_caps = ' '.join(context.args).upper()
     context.bot.send_message(chat_id=update.effective_chat.id, text=text_caps)
