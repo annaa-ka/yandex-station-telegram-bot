@@ -53,6 +53,17 @@ def access_check(update, context):
 access_check_handler = TypeHandler(Update, access_check)
 dispatcher.add_handler(access_check_handler, 0)
 
+
+def help_func(update, context):
+    context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text="The list of the available commands you can find in the menu.")
+
+
+help_handler = CommandHandler('help', help_func)
+dispatcher.add_handler(help_handler, 1)
+
+
 YANDEX_AUTH_USERNAME, YANDEX_AUTH_PASSWORD, YANDEX_AUTH_CAPTCHA = range(3)
 
 
