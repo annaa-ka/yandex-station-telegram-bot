@@ -56,14 +56,14 @@ dispatcher.add_handler(access_check_handler, 0)
 YANDEX_AUTH_USERNAME, YANDEX_AUTH_PASSWORD, YANDEX_AUTH_CAPTCHA = range(3)
 
 
-def clean_out_info(context):
+def delete_auth_info(context):
     lst = ['yandex_auth_username', 'yandex_auth_captcha_answer', 'yandex_auth_track_id']
     for key in lst:
         context.user_data.pop(key, None)
 
 
 def start(update, context):
-    clean_out_info(context)
+    delete_auth_info(context)
     update.message.reply_text("Hi! \n\n"
                               "To start our work we will need to get your yandex station token. \n"
                               "For this step we will need your Yandex ID and password. \n\n"
@@ -99,7 +99,7 @@ def yandex_password(update, context):
                 context.user_data['yandex_auth_captcha_answer'], context.user_data['yandex_auth_track_id'])
 
         update.message.reply_text("Authorization was successful! Use /set_speaker to choose which station we will use.")
-        clean_out_info(context)
+        delete_auth_info(context)
         return ConversationHandler.END
     except CaptchaRequiredException as err:
         context.user_data['yandex_auth_track_id'] = err.track_id
@@ -111,7 +111,7 @@ def yandex_password(update, context):
         update.message.reply_text("The password is wrong. Try again or restart the process with the /start command")
     except Exception:
         update.message.reply_text("Something went wrong. Restart the process with the /start command")
-        clean_out_info(context)
+        delete_auth_info(context)
         return ConversationHandler.END
 
 
@@ -127,7 +127,7 @@ def captcha_answer(update, context):
 
 
 def cancel_authorization(update, context):
-    clean_out_info(context)
+    delete_auth_info(context)
     update.message.reply_text("The authorization process is stopped. If you want to restart, use /start")
     return ConversationHandler.END
 
