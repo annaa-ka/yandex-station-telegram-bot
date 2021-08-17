@@ -89,12 +89,12 @@ def yandex_password(update, context):
     update.message.delete()
     try:
         if context.user_data.get('yandex_auth_captcha_answer') is None:
-            context.user_data['station_token'] = station_client.get_token(
+            context.user_data['yandex_auth_token'] = station_client.get_token(
                                                                             context.user_data['yandex_auth_username'],
                                                                             yandex_auth_password
                                                                             )
         else:
-            context.user_data['station_token'] = station_client.get_token_captcha(
+            context.user_data['yandex_auth_token'] = station_client.get_token_captcha(
                 context.user_data['yandex_auth_username'], yandex_auth_password,
                 context.user_data['yandex_auth_captcha_answer'], context.user_data['yandex_auth_track_id'])
 
@@ -132,7 +132,7 @@ def cancel_authorization(update, context):
     return ConversationHandler.END
 
 
-station_token_conv_handler = ConversationHandler(
+yandex_auth_token_conv_handler = ConversationHandler(
     entry_points=[CommandHandler('start', start)],
     states={
         YANDEX_AUTH_USERNAME: [MessageHandler(Filters.text & (~Filters.command), yandex_username)],
@@ -142,20 +142,20 @@ station_token_conv_handler = ConversationHandler(
     fallbacks=[CommandHandler('cancel_authorization', cancel_authorization)],
     allow_reentry=True
 )
-dispatcher.add_handler(station_token_conv_handler, 1)
+dispatcher.add_handler(yandex_auth_token_conv_handler, 1)
 
 YANDEX_CHOOSING_STATION = range(1)
 
 
 def start_station_choosing(update, context):
-    if context.user_data.get('station_token') is None:
+    if context.user_data.get('yandex_auth_token') is None:
         update.message.reply_text("Sorry, you have not authorized yet. Use /start to start our work.")
         return ConversationHandler.END
 
     update.message.reply_text("Now you need to choose a station which we will use in our work. \n\n"
                               "The command /cancel_station_choosing is to stop the conversation.")
 
-    list_of_speakers = station_client.get_speakers(context.user_data['station_token'])
+    list_of_speakers = station_client.get_speakers(context.user_data['yandex_auth_token'])
 
     inline_keyboard_list = []
     dict_of_station_config = {}
@@ -181,7 +181,7 @@ def choose_station(update, context):
 
 
     new_speaker_config = station_client.prepare_speaker(
-        context.user_data["station_token"],
+        context.user_data["yandex_auth_token"],
         context.user_data["dict_of_station_config"][speaker_id]
     )
     context.user_data["selected_yandex_speaker"] = new_speaker_config
@@ -217,7 +217,7 @@ dispatcher.add_handler(choosing_station_conv_handler, 1)
 
 
 def say_via_alice(update, context):
-    if context.user_data.get('station_token') is None:
+    if context.user_data.get('yandex_auth_token') is None:
         update.message.reply_text("Sorry, you have not authorized yet. Use /start to start our work.")
         return
 
@@ -226,7 +226,7 @@ def say_via_alice(update, context):
         return
 
     station_client.say(
-        context.user_data["station_token"],
+        context.user_data["yandex_auth_token"],
         context.user_data["selected_yandex_speaker"],
         update.message.text
     )
