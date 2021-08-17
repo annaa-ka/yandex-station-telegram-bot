@@ -19,6 +19,7 @@ class SpeakerConfig:
     id: str
     name: str
     scenario_id: Union[str, None]
+    quasar_info: dict
 
 class CaptchaRequiredException(Exception):
     def __init__(self, message, captcha_url: str, track_id: str = None):
@@ -105,7 +106,7 @@ class SyncCloudClient:
         await quasar.load_devices()
 
         return [
-            SpeakerConfig(item['id'], item['name'], item['scenario_id'])
+            SpeakerConfig(item['id'], item['name'], item['scenario_id'], item['quasar_info'])
             for item in quasar.speakers
         ]
 
@@ -122,7 +123,8 @@ class SyncCloudClient:
         return SpeakerConfig(
             speaker_data['id'], 
             speaker_data['name'], 
-            speaker_data['scenario_id']
+            speaker_data['scenario_id'],
+            speaker_data['quasar_info']
         )
 
     def say(self, token: str, device: SpeakerConfig, phrase: str):
@@ -145,7 +147,8 @@ class SyncCloudClient:
         return {
             'id': speaker.id,
             'scenario_id': speaker.scenario_id,
-            'name': speaker.name
+            'name': speaker.name,
+            'quasar_info': speaker.quasar_info
         }
     
     async def __get_quasar(self, token: str) -> YandexQuasar:
