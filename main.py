@@ -31,14 +31,17 @@ botToken = os.environ.get('TELEGRAM_BOT_TOKEN')
 my_persistence = PicklePersistence(filename='bot_data.bin')
 updater = Updater(token=botToken, persistence=my_persistence, use_context=True)
 dispatcher = updater.dispatcher
-whitelist = os.environ.get('USERS_WHITELIST', "").split(',')
+whitelist = os.environ.get('USERS_WHITELIST')
+if len(whitelist) != 0:
+    whitelist = whitelist.split(",")
+
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
 
 
 def access_check(update, context):
-    if whitelist[0] == "":
+    if len(whitelist) == 0:
         return
 
     if str(update.effective_user.id) not in whitelist:
@@ -125,7 +128,6 @@ def yandex_password(update, context):
         return ConversationHandler.END
 
 
-
 def captcha_answer(update, context):
     context.user_data['captcha_auth_answer'] = update.message.text
 
@@ -189,7 +191,6 @@ def choose_station(update, context):
     query = update.callback_query
     query.answer()
     speaker_id = query.data
-
 
     new_speaker_config = station_client.prepare_speaker(
         context.user_data["station_token"],
