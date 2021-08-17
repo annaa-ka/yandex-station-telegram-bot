@@ -32,6 +32,8 @@ my_persistence = PicklePersistence(filename='bot_data.bin')
 updater = Updater(token=botToken, persistence=my_persistence, use_context=True)
 dispatcher = updater.dispatcher
 whitelist = os.environ.get('USERS_WHITELIST')
+if whitelist is None:
+    whitelist = ""
 if len(whitelist) != 0:
     whitelist = whitelist.split(",")
 
