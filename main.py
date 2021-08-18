@@ -161,7 +161,7 @@ def start_station_choosing(update, context):
     dict_of_station_config = {}
 
     for elem in list_of_speakers:
-        button_message = elem.name + " (" + elem.quasar_info['device_id'] + ")"
+        button_message = elem.name + " (" + elem.device_id + ")"
         inline_keyboard_list.append(InlineKeyboardButton(button_message, callback_data=elem.id))
         dict_of_station_config[elem.id] = elem
 
@@ -187,7 +187,7 @@ def choose_station(update, context):
     )
     context.user_data["selected_yandex_speaker"] = new_speaker_config
 
-    query.edit_message_text(text=f"Selected option: {new_speaker_config.name} ({new_speaker_config.quasar_info['device_id']})")
+    query.edit_message_text(text=f"Selected option: {new_speaker_config.name} ({new_speaker_config.device_id})")
 
     context.bot.send_message(
         chat_id=update.effective_chat.id,
