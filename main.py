@@ -31,7 +31,12 @@ botToken = os.environ.get('TELEGRAM_BOT_TOKEN')
 my_persistence = PicklePersistence(filename='bot_data.bin')
 updater = Updater(token=botToken, persistence=my_persistence, use_context=True)
 dispatcher = updater.dispatcher
-whitelist = os.environ.get('USERS_WHITELIST', "").split(',')
+whitelist = os.environ.get('USERS_WHITELIST')
+if not whitelist:
+    whitelist = []
+else:
+    whitelist = whitelist.split(",")
+
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
@@ -40,6 +45,7 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 def access_check(update, context):
     if len(whitelist) == 0:
         return
+
     if str(update.effective_user.id) not in whitelist:
         context.bot.send_message(
             chat_id=update.effective_chat.id,
@@ -64,10 +70,12 @@ def delete_auth_dialog_data(context):
 
 def start(update, context):
     delete_auth_dialog_data(context)
+    
     update.message.reply_text("Hi! \n\n"
                               "To start our work we will need to get your yandex station token. \n"
                               "For this step we will need your Yandex ID and password. \n\n"
                               "The command /cancel_authorization is to stop the conversation.")
+
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text="Please, enter your Yandex ID.")
@@ -77,16 +85,19 @@ def start(update, context):
 def yandex_username(update, context):
     context.user_data['yandex_auth_username'] = update.message.text
     update.message.delete()
+
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text="If 2FA is activated for your yandex account, "
         "enter a one-time password. Otherwise, enter your password.")
+
     return YANDEX_AUTH_PASSWORD
 
 
 def yandex_password(update, context):
     yandex_auth_password = update.message.text
     update.message.delete()
+
     try:
         if context.user_data.get('yandex_auth_captcha_answer') is None:
             context.user_data['yandex_auth_token'] = station_client.get_token(
@@ -101,23 +112,27 @@ def yandex_password(update, context):
         update.message.reply_text("Authorization was successful! Use /set_speaker to choose which station we will use.")
         delete_auth_dialog_data(context)
         return ConversationHandler.END
+
     except CaptchaRequiredException as err:
         context.user_data['yandex_auth_track_id'] = err.track_id
+
         context.bot.send_message(
             chat_id=update.effective_chat.id,
             text="Please, type CAPTCHA answer below: " + err.captcha_url)
         return YANDEX_AUTH_CAPTCHA
+
     except WrongPasswordException:
         update.message.reply_text("The password is wrong. Try again or restart the process with the /start command")
+
     except Exception:
         update.message.reply_text("Something went wrong. Restart the process with the /start command")
         delete_auth_dialog_data(context)
         return ConversationHandler.END
 
 
-
 def captcha_answer(update, context):
     context.user_data['captcha_auth_answer'] = update.message.text
+
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text="If 2FA is activated for your yandex account, "
@@ -161,7 +176,8 @@ def start_station_choosing(update, context):
     dict_of_station_config = {}
 
     for elem in list_of_speakers:
-        inline_keyboard_list.append(InlineKeyboardButton(elem.name, callback_data=elem.id))
+        button_message = elem.name + " (" + elem.device_id + ")"
+        inline_keyboard_list.append(InlineKeyboardButton(button_message, callback_data=elem.id))
         dict_of_station_config[elem.id] = elem
 
     keyboard = [inline_keyboard_list]
@@ -179,14 +195,13 @@ def choose_station(update, context):
     query.answer()
     speaker_id = query.data
 
-
     new_speaker_config = station_client.prepare_speaker(
         context.user_data["yandex_auth_token"],
         context.user_data["dict_of_station_config"][speaker_id]
     )
     context.user_data["selected_yandex_speaker"] = new_speaker_config
 
-    query.edit_message_text(text=f"Selected option: {new_speaker_config.name}")
+    query.edit_message_text(text=f"Selected option: {new_speaker_config.name} ({new_speaker_config.device_id})")
 
     context.bot.send_message(
         chat_id=update.effective_chat.id,
