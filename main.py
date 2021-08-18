@@ -240,7 +240,7 @@ def delete_users_station_info(update, context):
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text="Now we will delete your token and selected station.\n"
-             "If you want to restart you work, use /start.")
+             "If you want to restart your work, use /start.")
 
     lst = ['yandex_auth_token', 'selected_yandex_speaker']
     for key in lst:
