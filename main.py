@@ -4,6 +4,7 @@ import os
 from dotenv import load_dotenv
 from telegram import InlineQueryResultArticle, InputTextMessageContent, Update
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.bot import Bot, BotCommand
 from telegram.ext import (
     Updater,
     CommandHandler,
@@ -33,6 +34,14 @@ updater = Updater(token=botToken, persistence=my_persistence, use_context=True)
 dispatcher = updater.dispatcher
 whitelist = os.environ.get('USERS_WHITELIST', "").split(',')
 
+
+command = [BotCommand("start", "get user yandex token"),
+           BotCommand("set_speaker", "choose yandex station"),
+           BotCommand("delete_my_data", "delete user information")]
+bot = Bot(botToken)
+bot.set_my_commands(command)
+
+
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
 
@@ -52,16 +61,6 @@ def access_check(update, context):
 
 access_check_handler = TypeHandler(Update, access_check)
 dispatcher.add_handler(access_check_handler, 0)
-
-
-def help_func(update, context):
-    context.bot.send_message(
-        chat_id=update.effective_chat.id,
-        text="The list of the available commands you can find in the menu.")
-
-
-help_handler = CommandHandler('help', help_func)
-dispatcher.add_handler(help_handler, 1)
 
 
 YANDEX_AUTH_USERNAME, YANDEX_AUTH_PASSWORD, YANDEX_AUTH_CAPTCHA = range(3)
