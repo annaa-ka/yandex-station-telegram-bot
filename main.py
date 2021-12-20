@@ -141,9 +141,9 @@ def yandex_password(update, context):
 
 
 
+#tttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt
 
-
-def captcha_answer(update, context):
+def captcha_answer(update, context) :
     context.user_data['captcha_auth_answer'] = update.message.text
 
     context.bot.send_message(
