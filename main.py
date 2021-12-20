@@ -141,6 +141,8 @@ def yandex_password(update, context):
 
 
 
+
+
 def captcha_answer(update, context):
     context.user_data['captcha_auth_answer'] = update.message.text
 
