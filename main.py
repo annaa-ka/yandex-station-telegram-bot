@@ -15,40 +15,41 @@ from telegram.ext import (
     InlineQueryHandler,
     TypeHandler,
     DispatcherHandlerStop,
-    CallbackQueryHandler
+    CallbackQueryHandler,
 )
 
 from yandex_station.station_client_cloud import (
     SyncCloudClient,
     CaptchaRequiredException,
-    WrongPasswordException
+    WrongPasswordException,
 )
 
 _LOGGER = logging.getLogger(__name__)
 
 load_dotenv()
-botToken = os.environ.get('TELEGRAM_BOT_TOKEN')
+botToken = os.environ.get("TELEGRAM_BOT_TOKEN")
 
-my_persistence = PicklePersistence(filename='bot_data.bin')
+my_persistence = PicklePersistence(filename="bot_data.bin")
 updater = Updater(token=botToken, persistence=my_persistence, use_context=True)
 dispatcher = updater.dispatcher
-whitelist = os.environ.get('USERS_WHITELIST')
+whitelist = os.environ.get("USERS_WHITELIST")
 if not whitelist:
     whitelist = []
 else:
     whitelist = whitelist.split(",")
 
-
-
-command = [BotCommand("start", "get user yandex token"),
-           BotCommand("set_speaker", "choose yandex station"),
-           BotCommand("delete_my_data", "delete user information")]
+command = [
+    BotCommand("start", "get user yandex token"),
+    BotCommand("set_speaker", "choose yandex station"),
+    BotCommand("delete_my_data", "delete user information")
+]
 bot = Bot(botToken)
 bot.set_my_commands(command)
 
-
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                    level=logging.INFO)
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
 
 
 def access_check(update, context):
@@ -59,8 +60,13 @@ def access_check(update, context):
         context.bot.send_message(
             chat_id=update.effective_chat.id,
             text="Sorry, the bot is in the development mode. "
-                 "You don't have access permission.")
-        _LOGGER.info('User with ID: ' + str(update.effective_user.id) + ' is not included into the whitelist.')
+                 "You don't have access permission."
+        )
+        _LOGGER.info(
+            "User with ID: "
+            + str(update.effective_user.id)
+            + " is not included into the whitelist."
+        )
         raise DispatcherHandlerStop
     return
 
@@ -68,38 +74,42 @@ def access_check(update, context):
 access_check_handler = TypeHandler(Update, access_check)
 dispatcher.add_handler(access_check_handler, 0)
 
-
 YANDEX_AUTH_USERNAME, YANDEX_AUTH_PASSWORD, YANDEX_AUTH_CAPTCHA = range(3)
 
 
 def delete_auth_dialog_data(context):
-    lst = ['yandex_auth_username', 'yandex_auth_captcha_answer', 'yandex_auth_track_id']
+    lst = ["yandex_auth_username", "yandex_auth_captcha_answer", "yandex_auth_track_id"]
     for key in lst:
         context.user_data.pop(key, None)
 
 
 def start(update, context):
     delete_auth_dialog_data(context)
-    
-    update.message.reply_text("Hi! \n\n"
-                              "To start our work we will need to get your yandex station token. \n"
-                              "For this step we will need your Yandex ID and password. \n\n"
-                              "The command /cancel_authorization is to stop the conversation.")
+
+    update.message.reply_text(
+        "Hi! \n\n"
+        "To start our work we will need to get your yandex station token. \n"
+        "For this step we will need your Yandex ID and password. \n\n"
+        "The command /cancel_authorization is to stop the conversation."
+    )
 
     context.bot.send_message(
         chat_id=update.effective_chat.id,
-        text="Please, enter your Yandex ID.")
+        text="Please, enter your Yandex ID."
+    )
     return YANDEX_AUTH_USERNAME
 
 
 def yandex_username(update, context):
-    context.user_data['yandex_auth_username'] = update.message.text
+    context.user_data["yandex_auth_username"] = update.message.text
     update.message.delete()
 
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text="If 2FA is activated for your yandex account, "
-        "enter a one-time password. Otherwise, enter your password.")
+             "enter a one-time password. Otherwise, please change your authorization on getting in with"
+             "one-passwords."
+    )
 
     return YANDEX_AUTH_PASSWORD
 
@@ -109,65 +119,81 @@ def yandex_password(update, context):
     update.message.delete()
 
     try:
-        if context.user_data.get('yandex_auth_captcha_answer') is None:
-            context.user_data['yandex_auth_token'] = station_client.get_token(
-                                                                            context.user_data['yandex_auth_username'],
-                                                                            yandex_auth_password
-                                                                            )
+        if context.user_data.get("yandex_auth_captcha_answer") is None:
+            context.user_data["yandex_auth_token"] = station_client.get_token(
+                context.user_data["yandex_auth_username"],
+                yandex_auth_password
+            )
         else:
             context.user_data['yandex_auth_token'] = station_client.get_token_captcha(
-                context.user_data['yandex_auth_username'], yandex_auth_password,
-                context.user_data['yandex_auth_captcha_answer'], context.user_data['yandex_auth_track_id'])
+                context.user_data['yandex_auth_username'],
+                yandex_auth_password,
+                context.user_data['yandex_auth_captcha_answer'],
+                context.user_data['yandex_auth_track_id']
+            )
 
-        update.message.reply_text("Authorization was successful! Use /set_speaker to choose which station we will use.")
+        update.message.reply_text(
+            "Authorization was successful! Use /set_speaker to choose which station we will use."
+        )
         delete_auth_dialog_data(context)
         return ConversationHandler.END
 
     except CaptchaRequiredException as err:
-        context.user_data['yandex_auth_track_id'] = err.track_id
+        context.user_data["yandex_auth_track_id"] = err.track_id
 
         context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text="Please, type CAPTCHA answer below: " + err.captcha_url)
+            text="Please, type CAPTCHA answer below: " + err.captcha_url
+        )
         return YANDEX_AUTH_CAPTCHA
 
     except WrongPasswordException:
-        update.message.reply_text("The password is wrong. Try again or restart the process with the /start command")
+        update.message.reply_text(
+            "The password is wrong. Try again or restart the process with the /start command"
+        )
 
     except Exception:
-        update.message.reply_text("Something went wrong. Restart the process with the /start command")
+        update.message.reply_text(
+            "Something went wrong. Restart the process with the /start command"
+        )
         delete_auth_dialog_data(context)
         return ConversationHandler.END
 
 
-
-#tttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt
-
-def captcha_answer(update, context) :
-    context.user_data['captcha_auth_answer'] = update.message.text
+def captcha_answer(update, context):
+    context.user_data["captcha_auth_answer"] = update.message.text
 
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text="If 2FA is activated for your yandex account, "
              "enter a new one-time password from app 'Яключ'."
-             "Otherwise, enter your password.")
+             "Otherwise, enter your password."
+    )
     return YANDEX_AUTH_PASSWORD
 
 
 def cancel_authorization(update, context):
     delete_auth_dialog_data(context)
-    update.message.reply_text("The authorization process is stopped. If you want to restart, use /start")
+    update.message.reply_text(
+        "The authorization process is stopped. If you want to restart, use /start"
+    )
     return ConversationHandler.END
 
 
 yandex_auth_token_conv_handler = ConversationHandler(
-    entry_points=[CommandHandler('start', start)],
+    entry_points=[CommandHandler("start", start)],
     states={
-        YANDEX_AUTH_USERNAME: [MessageHandler(Filters.text & (~Filters.command), yandex_username)],
-        YANDEX_AUTH_PASSWORD: [MessageHandler(Filters.text & (~Filters.command), yandex_password)],
-        YANDEX_AUTH_CAPTCHA: [MessageHandler(Filters.text & (~Filters.command), captcha_answer)],
+        YANDEX_AUTH_USERNAME: [
+            MessageHandler(Filters.text & (~Filters.command), yandex_username)
+        ],
+        YANDEX_AUTH_PASSWORD: [
+            MessageHandler(Filters.text & (~Filters.command), yandex_password)
+        ],
+        YANDEX_AUTH_CAPTCHA: [
+            MessageHandler(Filters.text & (~Filters.command), captcha_answer)
+        ],
     },
-    fallbacks=[CommandHandler('cancel_authorization', cancel_authorization)],
+    fallbacks=[CommandHandler("cancel_authorization", cancel_authorization)],
     allow_reentry=True
 )
 dispatcher.add_handler(yandex_auth_token_conv_handler, 1)
@@ -176,14 +202,16 @@ YANDEX_CHOOSING_STATION = range(1)
 
 
 def start_station_choosing(update, context):
-    if context.user_data.get('yandex_auth_token') is None:
+    if context.user_data.get("yandex_auth_token") is None:
         update.message.reply_text("Sorry, you have not authorized yet. Use /start to start our work.")
         return ConversationHandler.END
 
-    update.message.reply_text("Now you need to choose a station which we will use in our work. \n\n"
-                              "The command /cancel_station_choosing is to stop the conversation.")
+    update.message.reply_text(
+        "Now you need to choose a station which we will use in our work. \n\n"
+        "The command /cancel_station_choosing is to stop the conversation."
+    )
 
-    list_of_speakers = station_client.get_speakers(context.user_data['yandex_auth_token'])
+    list_of_speakers = station_client.get_speakers(context.user_data["yandex_auth_token"])
 
     inline_keyboard_list = []
     dict_of_station_config = {}
@@ -198,7 +226,7 @@ def start_station_choosing(update, context):
     context.user_data["dict_of_station_config"] = dict_of_station_config
 
     reply_markup = InlineKeyboardMarkup(keyboard)
-    update.message.reply_text('Please choose:', reply_markup=reply_markup)
+    update.message.reply_text("Please choose:", reply_markup=reply_markup)
 
     return YANDEX_CHOOSING_STATION
 
@@ -220,7 +248,8 @@ def choose_station(update, context):
         chat_id=update.effective_chat.id,
         text="The setup was successful. \n\n"
              "In your yandex cloud we have created a special service script. "
-             "Please, do not delete it.")
+             "Please, do not delete it."
+    )
 
     context.user_data.pop("dict_of_station_config", None)
 
@@ -234,22 +263,22 @@ def cancel_station_choosing(update, context):
 
 
 choosing_station_conv_handler = ConversationHandler(
-    entry_points=[CommandHandler('set_speaker', start_station_choosing)],
+    entry_points=[CommandHandler("set_speaker", start_station_choosing)],
     states={
         YANDEX_CHOOSING_STATION: [CallbackQueryHandler(choose_station)],
     },
-    fallbacks=[CommandHandler('cancel_station_choosing', cancel_station_choosing)],
+    fallbacks=[CommandHandler("cancel_station_choosing", cancel_station_choosing)],
     allow_reentry=True
 )
 dispatcher.add_handler(choosing_station_conv_handler, 1)
 
 
 def say_via_alice(update, context):
-    if context.user_data.get('yandex_auth_token') is None:
+    if context.user_data.get("yandex_auth_token") is None:
         update.message.reply_text("Sorry, you have not authorized yet. Use /start to start our work.")
         return
 
-    if context.user_data.get('selected_yandex_speaker') is None:
+    if context.user_data.get("selected_yandex_speaker") is None:
         update.message.reply_text("Sorry, you have not chosen the station yet. Use /set_speaker to start our work.")
         return
 
@@ -268,22 +297,24 @@ def delete_users_station_info(update, context):
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text="Now we will delete your token and selected station.\n"
-             "If you want to restart your work, use /start.")
+             "If you want to restart your work, use /start."
+    )
 
-    lst = ['yandex_auth_token', 'selected_yandex_speaker']
+    lst = ["yandex_auth_token", "selected_yandex_speaker"]
     for key in lst:
         context.user_data.pop(key, None)
 
 
-delete_users_station_info_handler = CommandHandler('delete_my_data', delete_users_station_info)
+delete_users_station_info_handler = CommandHandler("delete_my_data", delete_users_station_info)
 dispatcher.add_handler(delete_users_station_info_handler, 1)
 
+
 def caps(update, context):
-    text_caps = ' '.join(context.args).upper()
+    text_caps = " ".join(context.args).upper()
     context.bot.send_message(chat_id=update.effective_chat.id, text=text_caps)
 
 
-caps_handler = CommandHandler('caps', caps)
+caps_handler = CommandHandler("caps", caps)
 dispatcher.add_handler(caps_handler, 1)
 
 
@@ -295,7 +326,7 @@ def inline_caps(update, context):
     results.append(
         InlineQueryResultArticle(
             id=query.upper(),
-            title='Caps',
+            title="Caps",
             input_message_content=InputTextMessageContent(query.upper())
         )
     )
@@ -320,5 +351,3 @@ try:
 except KeyboardInterrupt:
     print("Received exit, exiting")
 updater.stop()
-
-
