@@ -2,5 +2,4 @@ version: '3'
 
 services:
   talking_station:
-    build: .
     image: annieka/yandex-station-telegram-bot:latest
