@@ -23,8 +23,7 @@ jobs:
           DEFAULT_BRANCH: main
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VALIDATE_PYTHON_MYPY: false
-
- push_to_registry:
+  push_to_registry:
     name: Publish Docker
     runs-on: ubuntu-latest
     steps:
