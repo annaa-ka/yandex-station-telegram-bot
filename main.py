@@ -2,25 +2,31 @@ import logging
 import os
 
 from dotenv import load_dotenv
-from telegram import InlineQueryResultArticle, InputTextMessageContent, Update
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import (
+    InlineQueryResultArticle,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    InputTextMessageContent,
+    Update,
+)
+
 from telegram.bot import Bot, BotCommand
 from telegram.ext import (
-    Updater,
+    CallbackQueryHandler,
     CommandHandler,
-    MessageHandler,
     ConversationHandler,
-    PicklePersistence,
+    DispatcherHandlerStop,
     Filters,
     InlineQueryHandler,
+    MessageHandler,
+    PicklePersistence,
     TypeHandler,
-    DispatcherHandlerStop,
-    CallbackQueryHandler,
+    Updater,
 )
 
 from yandex_station.station_client_cloud import (
-    SyncCloudClient,
     CaptchaRequiredException,
+    SyncCloudClient,
     WrongPasswordException,
 )
 
@@ -59,7 +65,7 @@ def access_check(update, context):
         context.bot.send_message(
             chat_id=update.effective_chat.id,
             text="Sorry, the bot is in the development mode. "
-            "You don't have access permission."
+            "You don't have access permission.",
         )
         _LOGGER.info(
             "User with ID: "
@@ -105,7 +111,7 @@ def yandex_username(update, context):
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text="If 2FA is activated for your yandex account, "
-        "enter a one-time password. Otherwise, please change your authorization on getting in with one-passwords."
+        "enter a one-time password. Otherwise, please change your authorization on getting in with one-time passwords.",
     )
 
     return YANDEX_AUTH_PASSWORD
@@ -121,11 +127,11 @@ def yandex_password(update, context):
                 context.user_data["yandex_auth_username"], yandex_auth_password
             )
         else:
-            context.user_data['yandex_auth_token'] = station_client.get_token_captcha(
+            context.user_data["yandex_auth_token"] = station_client.get_token_captcha(
                 context.user_data["yandex_auth_username"],
                 yandex_auth_password,
                 context.user_data["yandex_auth_captcha_answer"],
-                context.user_data["yandex_auth_track_id"]
+                context.user_data["yandex_auth_track_id"],
             )
 
         update.message.reply_text(
@@ -139,7 +145,7 @@ def yandex_password(update, context):
 
         context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text="Please, type CAPTCHA answer below: " + err.captcha_url ,
+            text="Please, type CAPTCHA answer below: " + err.captcha_url,
         )
         return YANDEX_AUTH_CAPTCHA
 
@@ -163,7 +169,7 @@ def captcha_answer(update, context):
         chat_id=update.effective_chat.id,
         text="If 2FA is activated for your yandex account, "
         "enter a new one-time password from app 'Яключ'."
-        "Otherwise, enter your password."
+        "Otherwise, please change your authorization on getting in with one-time passwords."
     )
     return YANDEX_AUTH_PASSWORD
 
@@ -252,7 +258,7 @@ def choose_station(update, context):
         chat_id=update.effective_chat.id,
         text="The setup was successful. \n\n"
         "In your yandex cloud we have created a special service script. "
-        "Please, do not delete it."
+        "Please, do not delete it.",
     )
 
     context.user_data.pop("dict_of_station_config", None)
@@ -307,7 +313,7 @@ def delete_users_station_info(update, context):
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text="Now we will delete your token and selected station.\n"
-        "If you want to restart your work, use /start."
+        "If you want to restart your work, use /start.",
     )
 
     lst = ["yandex_auth_token", "selected_yandex_speaker"]
@@ -352,7 +358,7 @@ dispatcher.add_handler(inline_caps_handler, 1)
 def unknown(update, context):
     context.bot.send_message(
         chat_id=update.effective_chat.id,
-        text="Sorry, I didn't understand that command."
+        text="Sorry, I didn't understand that command.",
     )
 
 
