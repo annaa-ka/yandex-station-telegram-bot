@@ -3,13 +3,12 @@ import os
 
 from dotenv import load_dotenv
 from telegram import (
-    InlineQueryResultArticle,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
+    InlineQueryResultArticle,
     InputTextMessageContent,
     Update,
 )
-
 from telegram.bot import Bot, BotCommand
 from telegram.ext import (
     CallbackQueryHandler,
@@ -23,7 +22,6 @@ from telegram.ext import (
     TypeHandler,
     Updater,
 )
-
 from yandex_station.station_client_cloud import (
     CaptchaRequiredException,
     SyncCloudClient,
@@ -53,7 +51,7 @@ bot = Bot(botToken)
 bot.set_my_commands(command)
 
 logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
 
 
@@ -169,7 +167,7 @@ def captcha_answer(update, context):
         chat_id=update.effective_chat.id,
         text="If 2FA is activated for your yandex account, "
         "enter a new one-time password from app 'Яключ'."
-        "Otherwise, please change your authorization on getting in with one-time passwords."
+        "Otherwise, please change your authorization on getting in with one-time passwords.",
     )
     return YANDEX_AUTH_PASSWORD
 
