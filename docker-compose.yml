@@ -4,12 +4,3 @@ services:
   talking_station:
     build: .
     image: annieka/yandex-station-telegram-bot:latest
-    environment:
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
-      USERS_WHITELIST: ${USERS_WHITELIST}
-
-  watchtower:
-    image: containrrr/watchtower
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    command: --interval 30
