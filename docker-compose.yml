@@ -4,6 +4,8 @@ services:
   talking_station:
     build: .
     image: annieka/yandex-station-telegram-bot:latest
+    env_file:
+      - .env
 
   watchtower:
     image: containrrr/watchtower
